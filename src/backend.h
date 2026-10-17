@@ -1,7 +1,7 @@
 #pragma once
 #include <QString>
 #include <QStringList>
-#include <functional>
+#include <qcoro/qcorotask.h>
 #include <vector>
 
 ///
@@ -24,16 +24,23 @@ struct Volume
 };
 
 ///
+/// Result of an operation. The error is empty on success. Mounting also returns the mount point.
+///
+struct Result
+{
+    QString error;
+    QString mount_point;
+};
+
+///
 /// Platform specific access to the volumes.
 ///
-/// All operations are asynchronous. The callback receives an error message, which is empty on
-/// success. Mount and unlock pass the mount point on success.
+/// The operations are coroutines running on the main thread. Volumes are passed by value, the
+/// caller may be gone before the operation finished.
 ///
 class Backend
 {
 public:
-
-    using Callback = std::function<void(const QString &error, const QString &result)>;
 
     virtual ~Backend() = default;
 
@@ -41,16 +48,16 @@ public:
     /// Thread-safe, called from worker threads.
     virtual std::vector<Volume> volumes() = 0;
 
-    virtual void mount(const Volume &volume, Callback done) = 0;
+    virtual QCoro::Task<Result> mount(Volume volume) = 0;
+
     /// Unmounts the volume. _force_ detaches it even if it is busy (lazy unmount).
-    virtual void unmount(const Volume &volume, bool force, Callback done) = 0;
+    virtual QCoro::Task<Result> unmount(Volume volume, bool force) = 0;
 
     /// Unlocks an encrypted volume and mounts it.
-    virtual void unlockAndMount(const Volume &volume, const QString &passphrase,
-                                Callback done) = 0;
+    virtual QCoro::Task<Result> unlockAndMount(Volume volume, QString passphrase) = 0;
 
-    virtual void lock(const Volume &volume, Callback done) = 0;
+    virtual QCoro::Task<Result> lock(Volume volume) = 0;
 
     /// Unmounts and locks all volumes of the drive, then powers it off or ejects the medium.
-    virtual void safelyRemove(const Volume &volume, Callback done) = 0;
+    virtual QCoro::Task<Result> safelyRemove(Volume volume) = 0;
 };

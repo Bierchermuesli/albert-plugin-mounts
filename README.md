@@ -18,4 +18,4 @@ The platform specific part is a small backend interface (`src/backend.h`), so ot
 
 ## Build
 
-The plugin is built as part of the Albert source tree. Clone it into `plugins/drives` and build Albert as usual. Requires Qt DBus and Widgets.
+The plugin is built as part of the Albert source tree. Clone it into `plugins/drives` and build Albert as usual. Requires Qt DBus and Widgets and QCoro (`qcoro-qt6-dev` on Debian).

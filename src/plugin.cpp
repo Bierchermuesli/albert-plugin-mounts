@@ -1,6 +1,7 @@
 #include "plugin.h"
 #include "udisksbackend.h"
 #include <QInputDialog>
+#include <QPointer>
 #include <QLocale>
 #include <QStorageInfo>
 #include <QTimer>
@@ -11,6 +12,7 @@
 #include <albert/querycontext.h>
 #include <albert/standarditem.h>
 #include <albert/systemutil.h>
+#include <qcoro/qcorotask.h>
 ALBERT_LOGGING_CATEGORY("drives")
 using namespace Qt::StringLiterals;
 using namespace albert;
@@ -65,21 +67,22 @@ QString iconName(const Volume &v)
     return u"drive-harddisk"_s;
 }
 
-/// Returns a callback that reports errors and optionally opens the mount point.
-Backend::Callback report(const QString &what, const QString &volume, bool open_after = false)
+/// Runs _task_ and reports errors. Opens the mount point if _open_after_.
+void run(QCoro::Task<Result> &&task, const QPointer<QObject> &context, const QString &what,
+         const QString &volume, bool open_after = false)
 {
-    return [=](const QString &error, const QString &mount_point) {
-        if (!error.isEmpty())
+    QCoro::connect(::move(task), context.data(), [=](const Result &result) {
+        if (!result.error.isEmpty())
         {
-            WARN << u"%1 %2 failed: %3"_s.arg(what, volume, error);
-            notify(u"%1 failed"_s.arg(what), u"%1: %2"_s.arg(volume, error));
+            WARN << u"%1 %2 failed: %3"_s.arg(what, volume, result.error);
+            notify(u"%1 failed"_s.arg(what), u"%1: %2"_s.arg(volume, result.error));
         }
-        else if (open_after && !mount_point.isEmpty())
-            albert::open(mount_point);
-    };
+        else if (open_after && !result.mount_point.isEmpty())
+            albert::open(result.mount_point);
+    });
 }
 
-vector<Action> actions(const shared_ptr<Backend> &backend, const Volume &v)
+vector<Action> actions(const shared_ptr<Backend> &backend, const Volume &v, QPointer<QObject> context)
 {
     vector<Action> actions;
     const auto n = volumeName(v);
@@ -90,10 +93,10 @@ vector<Action> actions(const shared_ptr<Backend> &backend, const Volume &v)
         actions.push_back({u"open"_s, u"Open"_s, [path]{ albert::open(path); }});
         actions.push_back({u"copy"_s, u"Copy path"_s, [path]{ setClipboardText(path); }});
         actions.push_back({u"unmount"_s, u"Unmount"_s,
-                           [=]{ backend->unmount(v, false, report(u"Unmount"_s, n)); }});
+                           [=]{ run(backend->unmount(v, false), context, u"Unmount"_s, n); }});
         // Lazy unmount, detaches the filesystem even if programs still use it
         actions.push_back({u"forceunmount"_s, u"Force unmount"_s,
-                           [=]{ backend->unmount(v, true, report(u"Force unmount"_s, n)); }});
+                           [=]{ run(backend->unmount(v, true), context, u"Force unmount"_s, n); }});
     }
     else if (v.encrypted && !v.unlocked)
     {
@@ -105,7 +108,7 @@ vector<Action> actions(const shared_ptr<Backend> &backend, const Volume &v)
                 u"Albert does not store it."_s.arg(n, v.device),
                 QLineEdit::Password, {}, &ok);
             if (ok)
-                backend->unlockAndMount(v, passphrase, report(u"Unlock"_s, n, open_after));
+                run(backend->unlockAndMount(v, passphrase), context, u"Unlock"_s, n, open_after);
         };
         actions.push_back({u"unlockopen"_s, u"Unlock and open"_s, [=]{ unlock(true); }});
         actions.push_back({u"unlock"_s, u"Unlock and mount"_s, [=]{ unlock(false); }});
@@ -113,22 +116,25 @@ vector<Action> actions(const shared_ptr<Backend> &backend, const Volume &v)
     else
     {
         actions.push_back({u"mountopen"_s, u"Mount and open"_s,
-                           [=]{ backend->mount(v, report(u"Mount"_s, n, true)); }});
+                           [=]{ run(backend->mount(v), context, u"Mount"_s, n, true); }});
         actions.push_back({u"mount"_s, u"Mount"_s,
-                           [=]{ backend->mount(v, report(u"Mount"_s, n)); }});
+                           [=]{ run(backend->mount(v), context, u"Mount"_s, n); }});
     }
 
     if (v.encrypted && v.unlocked)
         actions.push_back({u"lock"_s, u"Lock"_s,
-                           [=]{ backend->lock(v, report(u"Lock"_s, n)); }});
+                           [=]{ run(backend->lock(v), context, u"Lock"_s, n); }});
 
     if (v.can_safely_remove)
         actions.push_back({u"remove"_s, u"Safely remove"_s, [=]{
-            backend->safelyRemove(v, [n](const QString &error, const QString &) {
-                if (error.isEmpty())
+            QCoro::connect(backend->safelyRemove(v), context.data(), [n](const Result &result) {
+                if (result.error.isEmpty())
                     notify(u"Safe to remove"_s, u"%1 can be removed now."_s.arg(n));
                 else
-                    report(u"Safely remove"_s, n)(error, {});
+                {
+                    WARN << u"Safely remove %1 failed: %2"_s.arg(n, result.error);
+                    notify(u"Safely remove failed"_s, u"%1: %2"_s.arg(n, result.error));
+                }
             });
         }});
 
@@ -164,7 +170,7 @@ vector<RankItem> Plugin::rankItems(QueryContext &ctx)
         results.emplace_back(
             StandardItem::make(v.id, n, subtext,
                                [icon = iconName(v)]{ return Icon::theme(icon); },
-                               actions(backend_, v)),
+                               actions(backend_, v, this)),
             match.score());
     }
 
