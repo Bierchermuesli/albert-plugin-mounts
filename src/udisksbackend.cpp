@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Stefan Grosser
-
 #include "udisksbackend.h"
 #include <QDBusArgument>
 #include <QDBusConnection>

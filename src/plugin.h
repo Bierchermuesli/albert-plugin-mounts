@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Stefan Grosser
-
 #pragma once
 #include <albert/extensionplugin.h>
 #include <albert/globalqueryhandler.h>

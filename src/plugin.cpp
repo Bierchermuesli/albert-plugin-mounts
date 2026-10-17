@@ -1,5 +1,3 @@
-// Copyright (c) 2026 Stefan Grosser
-
 #include "plugin.h"
 #include "udisksbackend.h"
 #include <QInputDialog>
