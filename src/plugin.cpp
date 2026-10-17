@@ -14,7 +14,7 @@
 #include <albert/standarditem.h>
 #include <albert/systemutil.h>
 #include <qcoro/qcorotask.h>
-ALBERT_LOGGING_CATEGORY("drives")
+ALBERT_LOGGING_CATEGORY("mounts")
 using namespace Qt::StringLiterals;
 using namespace albert;
 using namespace std;

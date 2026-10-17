@@ -1,4 +1,4 @@
-# Drives
+# Mounts
 
 Albert plugin to mount, unmount and safely remove drives, e.g. USB sticks, external disks or optical media.
 
@@ -19,4 +19,4 @@ The platform specific part is a small backend interface (`src/backend.h`), so ot
 
 ## Build
 
-The plugin is built as part of the Albert source tree. Clone it into `plugins/drives` and build Albert as usual. Requires Qt DBus and Widgets and QCoro (`qcoro-qt6-dev` on Debian).
+The plugin is built as part of the Albert source tree. Clone it into `plugins/mounts` and build Albert as usual. Requires Qt DBus and Widgets and QCoro (`qcoro-qt6-dev` on Debian).

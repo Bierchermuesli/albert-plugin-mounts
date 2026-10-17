@@ -1,8 +1,12 @@
 {
-    "authors": ["@Bierchermuesli"],
-    "description": "Mount, unmount and safely remove drives",
+    "authors": [
+        "@Bierchermuesli"
+    ],
+    "description": "Mount, unmount and safely remove drives and network shares",
     "license": "MIT",
-    "maintainers": ["@Bierchermuesli"],
-    "name": "Drives",
-    "url": "https://github.com/Bierchermuesli/albert-plugin-drives"
+    "maintainers": [
+        "@Bierchermuesli"
+    ],
+    "name": "Mounts",
+    "url": "https://github.com/Bierchermuesli/albert-plugin-mounts"
 }
