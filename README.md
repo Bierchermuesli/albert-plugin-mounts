@@ -7,6 +7,7 @@ Albert plugin to mount, unmount and safely remove drives, e.g. USB sticks, exter
 - Force unmount (lazy) for busy drives. If unmounting fails because the drive is busy, the error names the programs using it.
 - Encrypted (LUKS) volumes: unlock with a passphrase and mount, lock.
 - Safely remove: unmounts and locks all volumes of the drive, then powers it off or ejects the medium.
+- Network shares and user space filesystems, e.g. sshfs, NFS or SMB: mounted ones are listed from the mount table, the ones that can be mounted from fstab. Unmount, force unmount (lazy) and mount, with an authentication dialog if the user is not allowed to on their own.
 
 Search by name, label, drive model or device, or use the trigger `mount `.
 

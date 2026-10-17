@@ -1,4 +1,5 @@
 #include "plugin.h"
+#include "mountsbackend.h"
 #include "udisksbackend.h"
 #include <QInputDialog>
 #include <QPointer>
@@ -34,6 +35,8 @@ QString volumeName(const Volume &v)
 {
     if (!v.label.isEmpty())
         return v.label;
+    if (!v.source.isEmpty())
+        return v.source;
     const auto size = formatSize(qint64(v.size));
     return v.drive.isEmpty() ? size : u"%1 %2"_s.arg(size, v.drive);
 }
@@ -62,6 +65,7 @@ QString iconName(const Volume &v)
     case Volume::Kind::Usb:       return u"drive-removable-media-usb"_s;
     case Volume::Kind::Optical:   return u"media-optical"_s;
     case Volume::Kind::Removable: return u"drive-removable-media"_s;
+    case Volume::Kind::Network:   return u"folder-remote"_s;
     case Volume::Kind::Disk:      break;
     }
     return u"drive-harddisk"_s;
@@ -143,7 +147,7 @@ vector<Action> actions(const shared_ptr<Backend> &backend, const Volume &v, QPoi
 
 }  // namespace
 
-Plugin::Plugin() : backend_(make_shared<UDisksBackend>()) {}
+Plugin::Plugin() : backends_{make_shared<UDisksBackend>(), make_shared<MountsBackend>()} {}
 
 Plugin::~Plugin() = default;
 
@@ -154,25 +158,29 @@ vector<RankItem> Plugin::rankItems(QueryContext &ctx)
     vector<RankItem> results;
     const Matcher matcher(ctx.query());
 
-    for (const auto &v : backend_->volumes())
-    {
-        const auto n = volumeName(v);
-        const auto match = matcher.match(QStringList{n, v.drive, v.device, u"drive"_s,
-                                                     u"mount"_s, u"unmount"_s, u"eject"_s,
-                                                     u"usb"_s, u"disk"_s});
-        if (!match)
-            continue;
+    for (const auto &backend : backends_)
+        for (const auto &v : backend->volumes())
+        {
+            const auto n = volumeName(v);
+            const auto network = v.kind == Volume::Kind::Network;
+            const auto match = matcher.match(QStringList{n, v.drive, v.device, u"mount"_s,
+                                                         u"unmount"_s, u"drive"_s,
+                                                         network ? u"share"_s : u"disk"_s,
+                                                         network ? u"network"_s : u"usb"_s,
+                                                         network ? u"remote"_s : u"eject"_s});
+            if (!match)
+                continue;
 
-        auto subtext = volumeState(v);
-        if (!v.label.isEmpty() && !v.drive.isEmpty())
-            subtext += u" · "_s + v.drive;
+            auto subtext = volumeState(v);
+            if (!v.drive.isEmpty() && !n.contains(v.drive))
+                subtext += u" · "_s + v.drive;
 
-        results.emplace_back(
-            StandardItem::make(v.id, n, subtext,
-                               [icon = iconName(v)]{ return Icon::theme(icon); },
-                               actions(backend_, v, this)),
-            match.score());
-    }
+            results.emplace_back(
+                StandardItem::make(v.id, n, subtext,
+                                   [icon = iconName(v)]{ return Icon::theme(icon); },
+                                   actions(backend, v, this)),
+                match.score());
+        }
 
     return results;
 }

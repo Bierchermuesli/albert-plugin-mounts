@@ -1,11 +1,9 @@
+#include "procfs.h"
 #include "udisksbackend.h"
 #include <QDBusArgument>
 #include <QDBusConnection>
 #include <QDBusMessage>
 #include <QDBusObjectPath>
-#include <QDir>
-#include <QFile>
-#include <QFileInfo>
 #include <QMap>
 #include <albert/logging.h>
 #include <qcoro/qcorodbuspendingcall.h>
@@ -132,38 +130,6 @@ QCoro::Task<Result> mountWithRetry(QString path, int attempts)
         // The filesystem interface of a freshly unlocked device may appear a bit later
         co_await QCoro::sleepFor(500ms);
     }
-}
-
-// Returns the names of the processes using files below _mount_point_. Only processes of the
-// current user are visible, but those are the ones the user can close anyway.
-QStringList blockingProcesses(const QString &mount_point)
-{
-    const auto prefix = mount_point.endsWith(u'/') ? mount_point : mount_point + u'/';
-    auto below = [&](const QString &path) { return path == mount_point || path.startsWith(prefix); };
-
-    QStringList names;
-    for (const auto &pid : QDir(u"/proc"_s).entryList(QDir::Dirs | QDir::NoDotAndDotDot))
-    {
-        if (!pid.front().isDigit())
-            continue;
-
-        const QDir proc(u"/proc/"_s + pid);
-        bool uses = below(QFileInfo(proc.filePath(u"cwd"_s)).symLinkTarget());
-        if (!uses)
-            for (const auto &fd : QDir(proc.filePath(u"fd"_s)).entryInfoList(QDir::System))
-                if (below(fd.symLinkTarget()))
-                {
-                    uses = true;
-                    break;
-                }
-
-        if (uses)
-            if (QFile comm(proc.filePath(u"comm"_s)); comm.open(QIODevice::ReadOnly))
-                if (const auto name = QString::fromUtf8(comm.readAll()).trimmed();
-                    !names.contains(name))
-                    names << name;
-    }
-    return names;
 }
 
 // Unmounts the filesystem at _path_. If it is busy, the error names the blocking processes.

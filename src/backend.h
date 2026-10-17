@@ -9,12 +9,13 @@
 ///
 struct Volume
 {
-    enum class Kind { Usb, Optical, Removable, Disk };
+    enum class Kind { Usb, Optical, Removable, Disk, Network };
 
     QString id;           ///< Backend specific identifier
     QString label;        ///< Filesystem label, may be empty
     QString drive;        ///< Human readable drive name, e.g. "Seagate BUP BK"
     QString device;       ///< Device file, e.g. /dev/sdb1
+    QString source;       ///< Remote source of a network share, e.g. user@host:/path
     quint64 size = 0;     ///< Bytes
     Kind kind = Kind::Disk;
     bool encrypted = false;

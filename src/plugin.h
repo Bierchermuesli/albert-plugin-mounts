@@ -2,6 +2,7 @@
 #include <albert/extensionplugin.h>
 #include <albert/globalqueryhandler.h>
 #include <memory>
+#include <vector>
 class Backend;
 
 class Plugin : public albert::ExtensionPlugin,
@@ -20,6 +21,6 @@ public:
 private:
 
     // Shared with the actions of the items, which may outlive the plugin
-    std::shared_ptr<Backend> backend_;
+    std::vector<std::shared_ptr<Backend>> backends_;
 
 };
